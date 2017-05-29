@@ -8,6 +8,9 @@
 #
 BTSTACK_ROOT = ../../../../../../esp/btstack
 
+# micro-ecc of WICED tree used for SECP256R1 in LE Secure Connections
+$(NAME)_COMPONENTS += micro-ecc
+
 COMPONENT_ADD_INCLUDEDIRS := \
 	${BTSTACK_ROOT}/3rd-party/bluedroid/decoder/include \
 	${BTSTACK_ROOT}/3rd-party/bluedroid/encoder/include \
@@ -16,6 +19,7 @@ COMPONENT_ADD_INCLUDEDIRS := \
 	$(BTSTACK_ROOT)/src/ble \
 	$(BTSTACK_ROOT)/src/classic \
 	$(BTSTACK_ROOT)/src \
+	$(BTSTACK_ROOT)/platform/embedded \
 	$(BTSTACK_ROOT)/platform/freertos \
 	include \
 
@@ -23,9 +27,10 @@ COMPONENT_SRCDIRS := \
 	$(BTSTACK_ROOT)/src/ble/gatt-service \
 	$(BTSTACK_ROOT)/src/ble \
 	$(BTSTACK_ROOT)/src/classic \
-	$(BTSTACK_ROOT)/src/ \
+	$(BTSTACK_ROOT)/src \
 	$(BTSTACK_ROOT)/platform/freertos \
 	. \
 
 CFLAGS += -Wno-format
+
 
