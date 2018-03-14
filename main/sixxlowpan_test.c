@@ -327,7 +327,7 @@ void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint1
 				ble_addr_to_eui64((uint8_t *)src.addr, peer_addr, 0);
 			}
 			
-			p = pbuf_alloc(PBUF_RAW, 127, PBUF_RAM);
+			p = pbuf_alloc(PBUF_RAW, 127, PBUF_REF);
 			p->payload = packet;
 			p->len = size;
 			#if LOWPAN_BLE_DEBUG_L2CAP_CB
