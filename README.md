@@ -10,7 +10,8 @@ In addition, you need to adjust the path to the BTStack sources (components/btst
 # Getting Started
 
 * Download/clone this repository
-* Download/clone BTStack repo (master branch), use a path nearby this repository (relative path in the Makefile)
+* Download/clone BTStack repo (master branch)
+* To integrate BTStack into the ESP32 IDF, please call the python script "btstack/port/esp32/integrate_btstack.py"
 * Move these files to the esp-idf lwip components folder: rfc7668.c (components/lwip/netif) and rfc7668.h/rfc7668_opts.h (components/lwip/include/lwip/netif)
 * make menuconfig, make and make flash monitor. Please deactivate Component Config->Bluetooth->Bluedroid Bluetooth stack enabled in make menuconfig!
 * Connect to your ESP32 via following shell commands (linux only; as root!):

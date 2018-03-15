@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2017/2018 Benjamin Aigner (FH Technikum Wien)
  * Copyright (C) 2014 BlueKitchen GmbH
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,29 +33,18 @@
  *
  * Please inquire about commercial licensing options at 
  * contact@bluekitchen-gmbh.com
- *
- */
-
-// *****************************************************************************
-/* EXAMPLE_START(spp_and_le_counter): Dual mode example
  * 
- * @text The SPP and LE Counter example combines the Bluetooth Classic SPP Counter
- * and the Bluetooth LE Counter into a single application.
- *
- * In this Section, we only point out the differences to the individual examples
- * and how how the stack is configured.
  */
-// *****************************************************************************
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-
+ 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
- 
+
 #include "btstack.h"
 #include "l2cap.h"
 #include "sixxlowpan_test.h"
@@ -62,6 +52,7 @@
 #include "netif/rfc7668_opts.h"
 #include "lwip/ip6_addr.h"
 #include "lwip/tcpip.h"
+
 
 int btstack_main(int argc, const char * argv[]);
 
@@ -71,22 +62,11 @@ ip6_addr_t ip6addr_local;
 #define RFCOMM_SERVER_CHANNEL 1
 #define HEARTBEAT_PERIOD_MS 1000
 
-//WTF is this?!?
+//what is this?
 #define TEST_COD 0x1234
-#define NUM_ROWS 25
-#define NUM_COLS 40
-#define DATA_VOLUME (10 * 1000 * 1000)
 
 /*
- * @section Advertisements 
- *
- * @text The Flags attribute in the Advertisement Data indicates if a device is in dual-mode or not.
- * Flag 0x06 indicates LE General Discoverable, BR/EDR not supported although we're actually using BR/EDR.
- * In the past, there have been problems with Anrdoid devices when the flag was not set.
- * Setting it should prevent the remote implementation to try to use GATT over LE/EDR, which is not 
- * implemented by BTstack. So, setting the flag seems like the safer choice (while it's technically incorrect).
- */
-/* LISTING_START(advertisements): Advertisement data: Flag 0x06 indicates LE-only device */
+ * Advertising data for an IPSP device */
 const uint8_t adv_data[] = {
     // Flags general discoverable, BR/EDR not supported
     0x02, 0x01, 0x05, 
@@ -100,63 +80,12 @@ static btstack_packet_callback_registration_t hci_event_callback_registration;
 uint8_t adv_data_len = sizeof(adv_data);
 static bd_addr_t peer_addr;
 
-//static uint8_t  test_data[NUM_ROWS * NUM_COLS];
-//static state_t state = W4_SDP_RESULT;
-
 //IPSP - buffer
 static uint8_t   ipsp_service_buffer[1300];
 static uint8_t   ipsp_addr_type;
 static uint16_t  ipsp_cid = 0;
 static hci_con_handle_t le_connection_handle;
 ip6_addr_t src;
-
-/** 
- * Find remote peer by COD
- */
-#define INQUIRY_INTERVAL 5/*
-static void start_scan(void){
-    printf("Starting inquiry scan..\n");
-    hci_send_cmd(&hci_inquiry, HCI_INQUIRY_LAP, INQUIRY_INTERVAL, 0);
-    state = W4_PEER_COD;
-}
-static void stop_scan(void){
-    printf("Stopping inquiry scan..\n");
-    hci_send_cmd(&hci_inquiry_cancel);
-    state = W4_SCAN_COMPLETE;
-}*/
-
-
-// returns 1 if name is found in advertisement
-#if 0
-static int advertisement_report_contains_name(const char * name, uint8_t * advertisement_report){
-    // get advertisement from report event
-    const uint8_t * adv_data = gap_event_advertising_report_get_data(advertisement_report);
-    uint16_t        adv_len  = gap_event_advertising_report_get_data_length(advertisement_report);
-    int             name_len = strlen(name);
-
-    // iterate over advertisement data
-    ad_context_t context;
-    for (ad_iterator_init(&context, adv_len, adv_data) ; ad_iterator_has_more(&context) ; ad_iterator_next(&context)){
-        uint8_t data_type    = ad_iterator_get_data_type(&context);
-        uint8_t data_size    = ad_iterator_get_data_len(&context);
-        const uint8_t * data = ad_iterator_get_data(&context);
-        int i;
-        switch (data_type){
-            case BLUETOOTH_DATA_TYPE_SHORTENED_LOCAL_NAME:
-            case BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME:
-                // compare common prefix
-                for (i=0; i<data_size && i<name_len;i++){
-                    if (data[i] != name[i]) break;
-                }
-                // prefix match
-                return 1;
-            default:
-                break;
-        }
-    }
-    return 0;
-}
-#endif
 
 /* 
  * @section Packet Handler
@@ -233,7 +162,7 @@ static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *pack
 	}
 }
 
-
+/** L2CAP callback used for data receiving for RFC7668 */
 void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
 	uint8_t ret = 0;
@@ -268,10 +197,19 @@ void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint1
 						printf("IPSP - peer: ");
 						for(uint8_t i=0;i<sizeof(peer_addr);i++) printf("%2X:",*(peer_addr+i));
 						printf("\n");
+                        //setup rfc7668 link
 						netif_set_link_up(&rfc7668_netif);
+                        //netif is now up
 						netif_set_up(&rfc7668_netif);
+                        //set eventflags
 						xEventGroupSetBits(lowpan_ble_flags,LOWPAN_BLE_FLAG_CONNECTED);
-						
+                        //calculate eui64 address for this connected peer
+						if(ipsp_addr_type == BD_ADDR_TYPE_LE_PUBLIC)
+                        {
+                            ble_addr_to_eui64((uint8_t *)src.addr, peer_addr, 1);
+                        } else {
+                            ble_addr_to_eui64((uint8_t *)src.addr, peer_addr, 0);
+                        }
 					}
 					break;
                 case L2CAP_EVENT_LE_CAN_SEND_NOW:
@@ -319,21 +257,20 @@ void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint1
 		break;
 		
 		
-		case L2CAP_DATA_PACKET:	
-			if(ipsp_addr_type == BD_ADDR_TYPE_LE_PUBLIC)
-			{
-				ble_addr_to_eui64((uint8_t *)src.addr, peer_addr, 1);
-			} else {
-				ble_addr_to_eui64((uint8_t *)src.addr, peer_addr, 0);
-			}
-			
-			p = pbuf_alloc(PBUF_RAW, 127, PBUF_REF);
+		case L2CAP_DATA_PACKET:
+            //allocate a pbuf for further processing
+			p = pbuf_alloc(PBUF_RAW, size, PBUF_REF);
+            if(p == NULL)
+            {
+                printf("Error allocating pbuf for L2CAP data, cannot proceed\n");
+                break;
+            }
 			p->payload = packet;
 			p->len = size;
 			#if LOWPAN_BLE_DEBUG_L2CAP_CB
 				printf("L2CAP: len: %d, tot_len: %d\n",p->len,p->tot_len);
 			#endif
-			//TODO: über netif aufrufen
+			///@todo usually data should be fed into lwIP (tcpip_inpkt()), not directly injected?
 			rfc7668_input(p,&rfc7668_netif,&src);
 		break;
 				
@@ -343,14 +280,14 @@ void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint1
 	}
 }
 
-
+/** data output function to send RFC7668 packets via BLE */
 err_t rfc7668_send_L2CAP(struct netif *netif, struct pbuf *p)
 {
 	return l2cap_le_send_data(ipsp_cid, p->payload, p->len);
 }
 
 
-/* LISTING_START(MainConfiguration): Init L2CAP RFCOMM SDO SM ATT Server and start heartbeat timer */
+/* BTStack main function */
 int btstack_main(int argc, const char * argv[])
 {
     UNUSED(argc);
@@ -365,10 +302,10 @@ int btstack_main(int argc, const char * argv[])
 
     l2cap_init();
 
-	//TODO: hier die security/pairing sachen richtig einstellen...
+	//TODO: set pairing/security features correctly
     gap_ssp_set_io_capability(SSP_IO_CAPABILITY_DISPLAY_YES_NO);
 
-    // short-cut to find other ODIN module?!? -> welche COD (class of device)?
+    // short-cut to find other ODIN module?!? -> what COD (class of device)?
     gap_set_class_of_device(TEST_COD);
 
     gap_discoverable_control(1);
@@ -394,14 +331,14 @@ int btstack_main(int argc, const char * argv[])
     gap_advertisements_set_data(adv_data_len, (uint8_t*) adv_data);
     gap_advertisements_enable(1);
 
-	//TODO: notwendig??
+	//TODO: necessary??
     //gatt_client_init();
     //spp_create_test_data();
     
     
     //setup l2cap for IPSP support
     //BT_PSM_IPSP => 0x0023 /* Internet Protocol Support Profile  */
-    //WARNING: change security level 0!!!
+    //WARNING: change security level 0 to something more secure!!!
     l2cap_le_register_service(l2cap_ipsp_cb,PSM_IPSP,LEVEL_0);
 
     // turn on!
