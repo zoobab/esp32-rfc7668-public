@@ -206,8 +206,12 @@ void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint1
                         //calculate eui64 address for this connected peer
 						if(ipsp_addr_type == BD_ADDR_TYPE_LE_PUBLIC)
                         {
+                            ///@todo Activate rfc7668_set_peer_addr_mac48 if lwIP is updated in esp-idf
+                            //rfc7668_set_peer_addr_mac48(&rfc7668_netif,(uint8_t *)src.addr,6,1);
                             ble_addr_to_eui64((uint8_t *)src.addr, peer_addr, 1);
                         } else {
+                            ///@todo Activate rfc7668_set_peer_addr_mac48 if lwIP is updated in esp-idf
+                            //rfc7668_set_peer_addr_mac48(&rfc7668_netif,(uint8_t *)src.addr,6,0);
                             ble_addr_to_eui64((uint8_t *)src.addr, peer_addr, 0);
                         }
 					}
@@ -270,7 +274,8 @@ void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint1
 			#if LOWPAN_BLE_DEBUG_L2CAP_CB
 				printf("L2CAP: len: %d, tot_len: %d\n",p->len,p->tot_len);
 			#endif
-			///@todo usually data should be fed into lwIP (tcpip_inpkt()), not directly injected?
+			///@todo Activate tcpip_inpkt if lwIP is updated in esp-idf
+            //tcpip_inpkt(p,&rfc7668_netif);
 			rfc7668_input(p,&rfc7668_netif,&src);
 		break;
 				
