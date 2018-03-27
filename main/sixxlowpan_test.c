@@ -228,7 +228,11 @@ void l2cap_ipsp_cb(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint1
 					break;
                 case L2CAP_EVENT_LE_CHANNEL_CLOSED:
 					printf("IPSP - LE channel closed...\n");
+                    //disconnect from L2CAP channel
 					l2cap_le_disconnect(ipsp_cid);
+                    //bring down lwIP netif
+                    netif_set_down(&rfc7668_netif);
+                    //clear connected flag
 					xEventGroupClearBits(lowpan_ble_flags,LOWPAN_BLE_FLAG_CONNECTED);
 					break;
                 case L2CAP_EVENT_LE_CHANNEL_OPENED:
